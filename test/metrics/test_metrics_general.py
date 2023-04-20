@@ -214,7 +214,7 @@ def test_histogram(device, input_shape, rtol: float = 1e-3, atol: float = 1e-3):
 def test_crps(device, rtol: float = 1e-3, atol: float = 1e-3):
     # Uses eq (5) from Gneiting et al. https://doi.org/10.1175/MWR2904.1
     # crps(N(0, 1), 0.0) = 2 / sqrt(2*pi) - 1/sqrt(pi) ~= 0.23...
-    x = torch.randn((100_000, 1), device=device, dtype=torch.float32)
+    x = torch.randn((1_000_000, 1), device=device, dtype=torch.float32)
     y = torch.zeros((1,), device=device, dtype=torch.float32)
 
     # Test pure crps

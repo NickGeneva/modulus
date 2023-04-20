@@ -69,42 +69,42 @@ def test_darcy_2d_device(device):
         break
 
 
-# @pytest.mark.parametrize("resolution", [32, 16])
-# @pytest.mark.parametrize("batch_size", [1, 2, 3])
-# @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
-# def test_darcy_2d_shape(resolution, batch_size, device):
+@pytest.mark.parametrize("resolution", [32, 16])
+@pytest.mark.parametrize("batch_size", [1, 2, 3])
+@pytest.mark.parametrize("device", ["cuda:0", "cpu"])
+def test_darcy_2d_shape(resolution, batch_size, device):
 
-#     # construct data pipe
-#     datapipe = Darcy2D(
-#         resolution=resolution,
-#         batch_size=batch_size,
-#         nr_permeability_freq=5,
-#         max_permeability=2.0,
-#         min_permeability=0.5,
-#         max_iterations=300,
-#         convergence_threshold=1e-4,
-#         iterations_per_convergence_check=10,
-#         nr_multigrids=2,
-#         normaliser={"permeability": (0.0, 1.0), "darcy": (0.0, 1.0)},
-#         device=device,
-#     )
+    # construct data pipe
+    datapipe = Darcy2D(
+        resolution=resolution,
+        batch_size=batch_size,
+        nr_permeability_freq=5,
+        max_permeability=2.0,
+        min_permeability=0.5,
+        max_iterations=300,
+        convergence_threshold=1e-4,
+        iterations_per_convergence_check=10,
+        nr_multigrids=2,
+        normaliser={"permeability": (0.0, 1.0), "darcy": (0.0, 1.0)},
+        device=device,
+    )
 
-#     # test single sample
-#     for data in datapipe:
-#         permeability = data["permeability"]
-#         darcy = data["darcy"]
+    # test single sample
+    for data in datapipe:
+        permeability = data["permeability"]
+        darcy = data["darcy"]
 
-#         # check batch size
-#         assert common.check_batch_size([permeability, darcy], batch_size)
+        # check batch size
+        assert common.check_batch_size([permeability, darcy], batch_size)
 
-#         # check channels
-#         assert common.check_channels([permeability, darcy], 1, axis=1)
+        # check channels
+        assert common.check_channels([permeability, darcy], 1, axis=1)
 
-#         # check grid dims
-#         assert common.check_grid(
-#             [permeability, darcy], (resolution, resolution), axis=(2, 3)
-#         )
-#         break
+        # check grid dims
+        assert common.check_grid(
+            [permeability, darcy], (resolution, resolution), axis=(2, 3)
+        )
+        break
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])
