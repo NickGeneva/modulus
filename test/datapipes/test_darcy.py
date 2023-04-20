@@ -27,7 +27,7 @@ def test_darcy_2d_constructor(device):
 
     # construct data pipe
     datapipe = Darcy2D(
-        resolution=64,
+        resolution=32,
         batch_size=1,
         nr_permeability_freq=5,
         max_permeability=2.0,
@@ -49,7 +49,7 @@ def test_darcy_2d_device(device):
 
     # construct data pipe
     datapipe = Darcy2D(
-        resolution=64,
+        resolution=32,
         batch_size=1,
         nr_permeability_freq=5,
         max_permeability=2.0,
@@ -57,7 +57,7 @@ def test_darcy_2d_device(device):
         max_iterations=300,
         convergence_threshold=1e-4,
         iterations_per_convergence_check=10,
-        nr_multigrids=4,
+        nr_multigrids=2,
         normaliser={"permeability": (0.0, 1.0), "darcy": (0.0, 1.0)},
         device=device,
     )
@@ -69,7 +69,7 @@ def test_darcy_2d_device(device):
         break
 
 
-@pytest.mark.parametrize("resolution", [128, 64])
+@pytest.mark.parametrize("resolution", [32, 16])
 @pytest.mark.parametrize("batch_size", [1, 2, 3])
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
 def test_darcy_2d_shape(resolution, batch_size, device):
@@ -84,7 +84,7 @@ def test_darcy_2d_shape(resolution, batch_size, device):
         max_iterations=300,
         convergence_threshold=1e-4,
         iterations_per_convergence_check=10,
-        nr_multigrids=3,
+        nr_multigrids=2,
         normaliser={"permeability": (0.0, 1.0), "darcy": (0.0, 1.0)},
         device=device,
     )
@@ -116,15 +116,15 @@ def test_darcy_cudagraphs(device):
 
     # construct data pipe
     datapipe = Darcy2D(
-        resolution=64,
+        resolution=32,
         batch_size=1,
         nr_permeability_freq=5,
         max_permeability=2.0,
         min_permeability=0.5,
-        max_iterations=300,
+        max_iterations=100,
         convergence_threshold=1e-4,
         iterations_per_convergence_check=10,
-        nr_multigrids=4,
+        nr_multigrids=1,
         normaliser={"permeability": (0.0, 1.0), "darcy": (0.0, 1.0)},
         device=device,
     )

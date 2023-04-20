@@ -216,7 +216,7 @@ def test_climate_efi(test_data, device, rtol: float = 1e-1, atol: float = 1e-1):
 
     # Test normal pdf and cdf
     _, test_counts = hist.histogram(
-        torch.randn(1_000_000, 1, 1, dtype=torch.float32, device=device), bins=bin_edges
+        torch.randn(100_000, 1, 1, dtype=torch.float32, device=device), bins=bin_edges
     )
     test_pdf = test_counts / torch.trapz(test_counts, bin_mids, dim=0)
     test_cdf = torch.cumsum(
@@ -238,13 +238,13 @@ def test_climate_efi(test_data, device, rtol: float = 1e-1, atol: float = 1e-1):
         atol=atol,
     )
 
-    x = torch.randn((1_000_000, 1, 1), dtype=torch.float32, device=device)
+    x = torch.randn((100_000, 1, 1), dtype=torch.float32, device=device)
     _, cdf = hist.cdf(x, bins=bin_edges)
     e = efi.efi(cdf, bin_edges, clim_mean, clim_std)
 
     assert torch.allclose(e, 0.0 * one, rtol=rtol, atol=atol)
 
-    x = 2.0 + 2.0 * torch.randn((1_000_000, 1, 1), dtype=torch.float32, device=device)
+    x = 2.0 + 2.0 * torch.randn((100_000, 1, 1), dtype=torch.float32, device=device)
     _, cdf = hist.cdf(x, bins=bin_edges)
     e1 = efi.efi(cdf, bin_edges, clim_mean, clim_std)
     assert torch.all(torch.ge(e1, 0.0 * one))

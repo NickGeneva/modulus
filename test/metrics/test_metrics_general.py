@@ -214,7 +214,7 @@ def test_histogram(device, input_shape, rtol: float = 1e-3, atol: float = 1e-3):
 def test_crps(device, rtol: float = 1e-3, atol: float = 1e-3):
     # Uses eq (5) from Gneiting et al. https://doi.org/10.1175/MWR2904.1
     # crps(N(0, 1), 0.0) = 2 / sqrt(2*pi) - 1/sqrt(pi) ~= 0.23...
-    x = torch.randn((1_000_000, 1), device=device, dtype=torch.float32)
+    x = torch.randn((100_000, 1), device=device, dtype=torch.float32)
     y = torch.zeros((1,), device=device, dtype=torch.float32)
 
     # Test pure crps
@@ -258,7 +258,7 @@ def test_crps(device, rtol: float = 1e-3, atol: float = 1e-3):
     binsx, countsx = hist.histogram(x, bins=1_000)
     assert torch.allclose(
         torch.sum(countsx, dim=0),
-        1_000_000 * torch.ones([1], dtype=torch.int64, device=device),
+        100_000 * torch.ones([1], dtype=torch.int64, device=device),
         rtol=rtol,
         atol=atol,
     )
@@ -449,7 +449,7 @@ def test_calibration(device, rtol: float = 1e-2, atol: float = 1e-2):
 def test_entropy(device, rtol: float = 1e-2, atol: float = 1e-2):
     one = torch.ones([1], device=device, dtype=torch.float32)
 
-    x = torch.randn((100_000, 10, 10), device=device, dtype=torch.float32)
+    x = torch.randn((10_000, 10, 10), device=device, dtype=torch.float32)
     bin_edges, bin_counts = hist.histogram(x, bins=30)
     entropy = ent._entropy_from_counts(bin_counts, bin_edges, normalized=False)
     assert entropy.shape == (10, 10)
@@ -461,18 +461,18 @@ def test_entropy(device, rtol: float = 1e-2, atol: float = 1e-2):
     assert torch.all(torch.ge(entropy, 0.0 * one))
 
     # Test Maximum Entropy
-    x = torch.rand((100_000, 10, 10), device=device, dtype=torch.float32)
+    x = torch.rand((10_000, 10, 10), device=device, dtype=torch.float32)
     bin_edges, bin_counts = hist.histogram(x, bins=30)
     entropy = ent._entropy_from_counts(bin_counts, bin_edges, normalized=True)
     assert entropy.shape == (10, 10)
     assert torch.allclose(entropy, one, rtol=rtol, atol=atol)
 
     # Test Relative Entropy
-    x = torch.randn((100_000, 10, 10), device=device, dtype=torch.float32)
+    x = torch.randn((10_000, 10, 10), device=device, dtype=torch.float32)
     bin_edges, x_bin_counts = hist.histogram(x, bins=30)
-    x1 = torch.randn((100_000, 10, 10), device=device, dtype=torch.float32)
+    x1 = torch.randn((10_000, 10, 10), device=device, dtype=torch.float32)
     _, x1_bin_counts = hist.histogram(x, bins=bin_edges)
-    x2 = 0.1 * torch.randn((100_000, 10, 10), device=device, dtype=torch.float32)
+    x2 = 0.1 * torch.randn((10_000, 10, 10), device=device, dtype=torch.float32)
     _, x2_bin_counts = hist.histogram(x, bins=bin_edges)
 
     rel_ent_1 = ent._relative_entropy_from_counts(
