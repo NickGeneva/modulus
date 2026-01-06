@@ -191,36 +191,8 @@ time = np.arange("2017-01-01T00:00:00", "2027-01-01T00:00:00", dtype="datetime64
 
 init_zarr_store(root, time, variable)
 # Set start time
-# start_date = np.datetime64("2023-09-01T00:00:00")
-# end_date = np.datetime64("2023-10-01T00:00:00")
-# sidx = np.where(time == start_date)[0][0]
-# eidx = np.where(time == end_date)[0][0]
-
-# pull_hrrr_data(root, time[sidx:eidx+1], hrrr_variables, batch_size=12)
-# pull_hrrr_fx_data(root, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
-
-
-# start_date = np.datetime64("2023-10-01T00:00:00")
-# end_date = np.datetime64("2023-11-01T00:00:00")
-# sidx = np.where(time == start_date)[0][0]
-# eidx = np.where(time == end_date)[0][0]
-
-# pull_hrrr_data(root, time[sidx:eidx+1], hrrr_variables, batch_size=12)
-# pull_hrrr_fx_data(root, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
-
-start_date = np.datetime64("2023-11-01T00:00:00")
-end_date = np.datetime64("2023-12-01T00:00:00")
-sidx = np.where(time == start_date)[0][0]
-eidx = np.where(time == end_date)[0][0]
-
-start_date = np.datetime64("2023-11-11T00:00:00")
-sidx2 = np.where(time == start_date)[0][0]
-
-pull_hrrr_data(root, time[sidx2:eidx+1], hrrr_variables, batch_size=12)
-pull_hrrr_fx_data(root, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
-
-start_date = np.datetime64("2023-12-01T00:00:00")
-end_date = np.datetime64("2024-01-01T00:00:00")
+start_date = np.datetime64("2024-02-01T00:00:00")
+end_date = np.datetime64("2024-03-01T00:00:00")
 sidx = np.where(time == start_date)[0][0]
 eidx = np.where(time == end_date)[0][0]
 
