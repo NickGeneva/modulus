@@ -1,4 +1,6 @@
 import datetime
+import csv
+import os
 import torch
 import zarr
 import numpy as np
@@ -27,10 +29,10 @@ class HRRRSurfaceDataset(Dataset):
         "tp",
         "aerot"
     ]
-    LOG_VARIABLES = ("tp", "aerot")
+    LOG_VARIABLES = ("tp", "aerot") # Make sure is consistent with stats CSV
     EPSILON = 1e-8
 
-    def __init__(self, zarr_root: zarr.group, time_indices: np.array):
+    def __init__(self, zarr_root: zarr.group, time_indices: np.array, stats_csv: str = "stats/stats.csv"):
 
         self.root = zarr_root
         self.idx = np.asarray(time_indices, dtype=int).ravel()
@@ -43,8 +45,28 @@ class HRRRSurfaceDataset(Dataset):
                 "time_indices contain out-of-bounds values for zarr_root['time']"
             )
 
-        self.target_means = torch.zeros(len(self.VARIABLES)).unsqueeze(-1).unsqueeze(-1)
-        self.target_stds = torch.ones(len(self.VARIABLES)).unsqueeze(-1).unsqueeze(-1)
+        # Load normalization stats and log-scaling flags from summary_stats.csv
+        stats_csv = os.path.join(os.path.dirname(__file__), stats_csv)
+        means = []
+        stds = []
+        stats_map = {}
+        with open(stats_csv, "r", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                var = row.get("variable")
+                mu = float(row.get("mean", "nan"))
+                sd = float(row.get("std", "nan"))
+                stats_map[var] = (mu, sd)
+
+        # Order based on VARIABLES
+        for var in self.VARIABLES:
+            mu, sd, _ = stats_map[var]
+            means.append(mu)
+            stds.append(sd)
+
+        # Instance-level overrides for normalization and log variables
+        self.target_means = torch.tensor(means, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
+        self.target_stds = torch.tensor(stds, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
 
         self.grid_lat = self.root["lat"][:]
         self.grid_lon = self.root["lon"][:]
@@ -90,3 +112,5 @@ if __name__ == "__main__":
 
     dataset = HRRRSurfaceDataset(root, time_idx)
     cond, target  = dataset[30]
+
+    print(dataset.target_means, dataset.target_stds, dataset.LOG_VARIABLES)

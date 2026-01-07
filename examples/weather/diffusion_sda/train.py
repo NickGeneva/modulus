@@ -20,6 +20,7 @@ import importlib
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from  torch.utils.data import DataLoader
 
 from physicsnemo.distributed import DistributedManager
 from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
@@ -34,6 +35,7 @@ from physicsnemo.diffusion.utils.utils import InfiniteSampler
 # TODO: replace with updated APIs once refactor is complete
 from utils import EDMPreconditioner, EDMLoss, DiffusionAdapter
 
+from data import HRRRSurfaceDataset
 
 # Compilation settings
 torch._dynamo.reset()
@@ -136,8 +138,35 @@ def main():
     # val_loader = HRRRDataPipe(path_to_data, batch_size_per_gpu, "val")
     # train_iter = iter(train_loader)
     # val_iter = iter(val_loader)
-    train_iter = None  # Placeholder
-    val_iter = None  # Placeholder
+
+    root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v1', mode='r', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    time = root['time'][:]
+    sidx = np.where(time == np.datetime64("2023-01-01T00:00:00"))[0][0]
+    eidx = np.where(time == np.datetime64("2023-02-01T00:00:00"))[0][0]
+    time_idx = np.arange(sidx, eidx)
+    dataset = HRRRSurfaceDataset(root, time_idx)
+    train_iter = DataLoader(dataset, batch_size=1, shuffle=True,
+            sampler=InfiniteSampler(shuffle=True),
+            num_workers=0,
+            pin_memory=False,
+            drop_last=False,
+            timeout=0,
+            prefetch_factor=2,
+            persistent_workers=False)
+
+    sidx = np.where(time == np.datetime64("2024-01-01T00:00:00"))[0][0]
+    eidx = np.where(time == np.datetime64("2024-02-01T00:00:00"))[0][0]
+    time_idx = np.arange(sidx, eidx, 25)
+    dataset = HRRRSurfaceDataset(root, time_idx)
+    val_iter = DataLoader(dataset, batch_size=1, shuffle=False,
+            sampler=InfiniteSampler(shuffle=False),
+            num_workers=0,
+            pin_memory=False,
+            drop_last=False,
+            timeout=0,
+            prefetch_factor=2,
+            persistent_workers=False)
+
     num_training_samples = train_loader.num_total_samples
 
     # Create loss function with multi-diffusion support
