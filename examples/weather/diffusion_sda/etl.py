@@ -199,49 +199,45 @@ async def pull_hrrr_fx_data(zarr_root: str, time: np.ndarray, variable: str, bat
 
         await asyncio.gather(*jobs)
 
+if __name__ == "__main__":
+    store ='s3://hrrr-surface-sda/zarr-v2'
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
+    logger.add("output.log", level="INFO")
+    hrrr_variables = [
+        "u10m",
+        "v10m",
+        "u80m",
+        "v80m",
+        "t2m",
+        "d2m",
+        "q2m",
+        "sp",
+        "fg10m",
+        "tcc",
+        "sde",
+        "snowc",
+        "refc",
+        "rsds",
+    ]
+    hrrr_fx_variables = ["tp", "aerot"]
+    variable = hrrr_variables + hrrr_fx_variables
 
-store ='s3://hrrr-surface-sda/zarr-v2'
-# store = zarr.storage.LocalStore("/lustre/fsw/coreai_climate_earth2/ngeneva/hrrr_surface.zarr")
-# root = zarr.group(store=store, overwrite=False)
+    time = np.arange("2017-01-01T00:00:00", "2027-01-01T00:00:00", dtype="datetime64[h]")
 
-# export LOGURU_LEVEL="INFO"
-logger.remove()
-logger.add(sys.stderr, level="INFO")
-logger.add("output.log", level="INFO")
-hrrr_variables = [
-    "u10m",
-    "v10m",
-    "u80m",
-    "v80m",
-    "t2m",
-    "d2m",
-    "q2m",
-    "sp",
-    "fg10m",
-    "tcc",
-    "sde",
-    "snowc",
-    "refc",
-    "rsds",
-]
-hrrr_fx_variables = ["tp", "aerot"]
-variable = hrrr_variables + hrrr_fx_variables
+    # init_zarr_store(root, time, variable)
 
-time = np.arange("2017-01-01T00:00:00", "2027-01-01T00:00:00", dtype="datetime64[h]")
-
-# init_zarr_store(root, time, variable)
-
-# Set start time
-start_date = np.datetime64("2023-01-01T00:00:00")
-end_date = np.datetime64("2023-03-01T00:00:00")
-# start_date = np.datetime64("2024-04-01T00:00:00")
-# end_date = np.datetime64("2024-06-01T00:00:00")
-sidx = np.where(time == start_date)[0][0]
-eidx = np.where(time == end_date)[0][0]
+    # Set start time
+    start_date = np.datetime64("2023-01-01T00:00:00")
+    end_date = np.datetime64("2023-03-01T00:00:00")
+    # start_date = np.datetime64("2024-04-01T00:00:00")
+    # end_date = np.datetime64("2024-06-01T00:00:00")
+    sidx = np.where(time == start_date)[0][0]
+    eidx = np.where(time == end_date)[0][0]
 
 
-asyncio.run(pull_hrrr_data(store, time[sidx:eidx+1], hrrr_variables, batch_size=12))
-asyncio.run(pull_hrrr_fx_data(store, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12))
+    asyncio.run(pull_hrrr_data(store, time[sidx:eidx+1], hrrr_variables, batch_size=12))
+    asyncio.run(pull_hrrr_fx_data(store, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12))
 
 
 # start_date = np.datetime64("2024-04-01T00:00:00")
