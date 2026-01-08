@@ -4,9 +4,12 @@ from datetime import timedelta
 import os
 import csv
 import time as pytime
+import asyncio
+import sys
 
 from loguru import logger
 from earth2studio.data import HRRR, HRRR_FX
+
 
 
 def _append_missing_dates_to_csv(datetimes: np.ndarray, csv_path: str) -> None:
@@ -106,8 +109,9 @@ def init_zarr_store(zarr_root: zarr.group, time: np.ndarray, variable: str):
             pass
 
 
-def pull_hrrr_data(zarr_root: zarr.group, time: np.ndarray, variable: str, batch_size: int = 1):
-
+async def pull_hrrr_data(zarr_root: str, time: np.ndarray, variable: str, batch_size: int = 1):
+    root = await zarr.api.asynchronous.open_group(zarr_root, mode='a', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    zarr_time_coord = await (await root.get("time")).getitem(slice(None))
     ds = HRRR(verbose=False, cache=False)
     # Batch over times present
     for sidx in range(0, len(time), batch_size):
@@ -116,26 +120,44 @@ def pull_hrrr_data(zarr_root: zarr.group, time: np.ndarray, variable: str, batch
         batch_t = time[sidx : eidx + 1]
 
         try:
-            da = ds(batch_t, variable)
+            da = await ds.fetch(batch_t, variable)
         except FileNotFoundError as exc:
             logger.warning(
                 f"File not found for times {batch_t[0]} to {batch_t[-1]} - recording and continuing. Details: {exc}"
             )
             _append_missing_dates_to_csv(batch_t, "missing_dates_hrrr.csv")
             continue
-        time_indices = np.where(np.isin(zarr_root["time"][:], da["time"].values))[0]
 
-        # Save to zarr store
-        for i, v in enumerate(variable):
-            try:
-                zarr_root[v][time_indices, :, :] = da.values[:, i]
-            except Exception:
-                pytime.sleep(4)
-                zarr_root[v][time_indices, :, :] = da.values[:, i]
+        time_indices = np.where(np.isin(zarr_time_coord, da["time"].values))[0]
+
+        # Save to zarr store using async open_array and concurrent writes
+        logger.warning("Uploading data (async)")
+        store = root.store
+        async def _write_one(i: int, j: int, t: int, v: str):
+            retries = 4
+            for attempt in range(retries + 1):
+                try:
+                    arr = await root.get(v)
+                    await arr.setitem((t, slice(None), slice(None)), da.values[i, j])
+                    return
+                except Exception:
+                    logger.error("Write failed, re-attempting...")
+                    if attempt < retries:
+                        await asyncio.sleep(4)
+                    else:
+                        raise
+
+        jobs = []
+        for i, t in enumerate(time_indices):
+            for j, v in enumerate(variable):
+                jobs.append(_write_one(i, j, t, v))
+
+        await asyncio.gather(*jobs)
 
 
-def pull_hrrr_fx_data(zarr_root: zarr.group, time: np.ndarray, variable: str, batch_size: int = 1):
-
+async def pull_hrrr_fx_data(zarr_root: str, time: np.ndarray, variable: str, batch_size: int = 1):
+    root = await zarr.api.asynchronous.open_group(zarr_root, mode='a', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    zarr_time_coord = await (await root.get("time")).getitem(slice(None))
     ds = HRRR_FX(verbose=False, cache=False)
     # Batch over times present
     for sidx in range(0, len(time), batch_size):
@@ -144,30 +166,48 @@ def pull_hrrr_fx_data(zarr_root: zarr.group, time: np.ndarray, variable: str, ba
         batch_t = time[sidx : eidx + 1]
 
         try:
-            da = ds(batch_t, timedelta(hours=1), variable).isel(lead_time=0)
+            da = await ds(batch_t, timedelta(hours=1), variable).isel(lead_time=0)
         except FileNotFoundError as exc:
             logger.warning(
                 f"File not found for times {batch_t[0]} to {batch_t[-1]} - recording and continuing. Details: {exc}"
             )
             _append_missing_dates_to_csv(batch_t, "missing_dates_hrrr.csv")
             continue
-        time_indices = np.where(np.isin(zarr_root["time"][:], da["time"].values))[0]
+        time_indices = np.where(np.isin(zarr_time_coord, da["time"].values))[0]
 
-        # Save to zarr store
-        for i, v in enumerate(variable):
-            try:
-                zarr_root[v][time_indices, :, :] = da.values[:, i]
-            except Exception:
-                pytime.sleep(4)
-                zarr_root[v][time_indices, :, :] = da.values[:, i]
+        # Save to zarr store using async open_array and concurrent writes
+        logger.warning("Uploading data (async)")
+        store = root.store
+        async def _write_one(i: int, j: int, t: int, v: str):
+            retries = 4
+            for attempt in range(retries + 1):
+                try:
+                    arr = await root.get(v)
+                    await arr.setitem((t, slice(None), slice(None)), da.values[i, j])
+                    return
+                except Exception:
+                    logger.error("Write failed, re-attempting...")
+                    if attempt < retries:
+                        await asyncio.sleep(4)
+                    else:
+                        raise
+
+        jobs = []
+        for i, t in enumerate(time_indices):
+            for j, v in enumerate(variable):
+                jobs.append(_write_one(i, j, t, v))
+
+        await asyncio.gather(*jobs)
 
 
-
+store ='s3://hrrr-surface-sda/zarr-v2'
 # store = zarr.storage.LocalStore("/lustre/fsw/coreai_climate_earth2/ngeneva/hrrr_surface.zarr")
 # root = zarr.group(store=store, overwrite=False)
 
 # export LOGURU_LEVEL="INFO"
-root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v1', mode='a', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+logger.add("output.log", level="INFO")
 hrrr_variables = [
     "u10m",
     "v10m",
@@ -189,13 +229,25 @@ variable = hrrr_variables + hrrr_fx_variables
 
 time = np.arange("2017-01-01T00:00:00", "2027-01-01T00:00:00", dtype="datetime64[h]")
 
-init_zarr_store(root, time, variable)
+# init_zarr_store(root, time, variable)
 
 # Set start time
-start_date = np.datetime64("2024-04-01T00:00:00")
-end_date = np.datetime64("2024-06-01T00:00:00")
+start_date = np.datetime64("2023-01-01T00:00:00")
+end_date = np.datetime64("2023-03-01T00:00:00")
+# start_date = np.datetime64("2024-04-01T00:00:00")
+# end_date = np.datetime64("2024-06-01T00:00:00")
 sidx = np.where(time == start_date)[0][0]
 eidx = np.where(time == end_date)[0][0]
 
-pull_hrrr_data(root, time[sidx:eidx+1], hrrr_variables, batch_size=12)
-pull_hrrr_fx_data(root, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
+
+asyncio.run(pull_hrrr_data(store, time[sidx:eidx+1], hrrr_variables, batch_size=12))
+asyncio.run(pull_hrrr_fx_data(store, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12))
+
+
+# start_date = np.datetime64("2024-04-01T00:00:00")
+# end_date = np.datetime64("2024-06-01T00:00:00")
+# sidx = np.where(time == start_date)[0][0]
+# eidx = np.where(time == end_date)[0][0]
+
+# # pull_hrrr_data(root, time[sidx:eidx+1], hrrr_variables, batch_size=12)
+# pull_hrrr_fx_data(root, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
