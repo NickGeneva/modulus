@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git" }
+earth2studio = { git = "https://github.com/NickGeneva/earth2studio.git", branch = "ngeneva/hrrr_memory" }
 
 [tool.setuptools]
 package-dir = {"" = "."} 
