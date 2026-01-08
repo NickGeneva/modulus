@@ -68,25 +68,6 @@ class EDMPreconditioner(Module):
         )
 
 
-# TODO: use version from diffusion package once refactor is complete
-class DiffusionAdapter(Module):
-    """
-    Adapter to make a model callable with the correct
-    signature ``forward(x, t, condition, **model_kwargs) -> torch.Tensor``.
-    """
-
-    def __init__(
-        self,
-        model: Module,
-    ):
-        super().__init__(meta=ModelMetaData())
-        self.model = model
-
-    def forward(self, x, t, condition, **model_kwargs):
-        # NOTE: this is hardcoded for the SongUNetPosEmbd model to make it
-        # simpler here.
-        return self.model(x, t, None, **model_kwargs)
-
 
 # TODO: use version from diffusion package once refactor is complete
 class EDMLoss:
@@ -153,13 +134,6 @@ class EDMLoss:
         """
         Calculate and return the loss corresponding to the EDM formulation.
         """
-
-        if self.patching:
-            # (P * B, C, H_p, W_p)
-            x = self.patching.apply(x)
-            for cond_name, y_cond in condition.items():
-                condition[cond_name] = self.patching.apply(input=y_cond)
-
         # Compute noise parameters
         n, sigma, weight = self.get_noise_params(x)
 
@@ -167,11 +141,6 @@ class EDMLoss:
             x + n,
             sigma,
             condition,
-            global_index=(
-                self.patching.global_index(x.shape[0], x.device)
-                if self.patching is not None
-                else None
-            ),
             **model_kwargs,
         )
         return weight.view(x.shape[0], *((1,) * (x.ndim - 1))) * ((x_0 - x) ** 2)

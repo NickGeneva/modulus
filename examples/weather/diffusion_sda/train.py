@@ -36,6 +36,7 @@ from physicsnemo.diffusion.utils.utils import InfiniteSampler
 from utils import EDMPreconditioner, EDMLoss, DiffusionAdapter
 
 from data import HRRRSurfaceDataset
+from nn import HRRRSurfaceDiffusionNet
 
 # Compilation settings
 torch._dynamo.reset()
@@ -47,22 +48,6 @@ torch._logging.set_logs(recompiles=True, graph_breaks=True)
 
 def main():
     # Configuration
-    # TODO-NG: update with actual number of variables (channels). Let's keep
-    # the raw resolution. If problem with patching, the right
-    # approach should be to make the patching operations work for *any*
-    # resolution instead of cropping the global image or some other trickery.
-    img_resolution = [1059, 1799]
-    img_channels = 8
-    # TODO-NG: update with actual patch size, must be a multiple of 16 and
-    # as close as possible to being a divisor of the image resolution (not
-    # sure?). US CorrDiff seems to be using 448x448 patches (not sure
-    # that's right, but it's what we have in the physicsnemo codebase.
-    # Maybe the NIM has something different?). So we should use *at least*
-    # whatever value was used for US cOrrDiff, but it could be larger as
-    # long as it fits in memory.
-    patch_shape = (448, 448)
-    patch_num = 4
-    # TODO-NG: need to update with actual parameters below
     batch_size_per_gpu = 64
     load_checkpoint_from_file = False
     checkpoint_dir = "./checkpoints"
@@ -81,23 +66,18 @@ def main():
     logger = PythonLogger("main")
     rank_zero_logger = RankZeroLoggingWrapper(logger, dist)
 
-    # Create model
-    channel_mult = [1, 2, 2, 2, 2]
-    num_grid_channels = 20
-    model_backbone = SongUNetPosEmbd(
-        img_resolution=img_resolution,
-        in_channels=img_channels + num_grid_channels,
-        out_channels=img_channels,
-        N_grid_channels=num_grid_channels,
-        gridtype="learnable",
-        model_channels=128,
-        channel_mult=channel_mult,
-        attn_resolutions=[img_resolution[0] >> len(channel_mult)],
-        use_apex_gn=use_apex,
+
+    patching = RandomPatching2D(
+        img_shape=HRRRSurfaceDiffusionNet.IMG_RESOLUTION,
+        patch_shape=(448, 448),
+        patch_num=4,
+    )
+    model = HRRRSurfaceDiffusionNet(
+        patching, use_apex=use_apex
     )
     model = (
         EDMPreconditioner(
-            model=DiffusionAdapter(model_backbone),
+            model=model,
             sigma_data=1.0,
         )
         .to(dist.device)
@@ -170,11 +150,6 @@ def main():
     num_training_samples = train_loader.num_total_samples
 
     # Create loss function with multi-diffusion support
-    patching = RandomPatching2D(
-        img_shape=img_resolution,
-        patch_shape=patch_shape,
-        patch_num=patch_num,
-    )
     loss_fn = EDMLoss(
         model=model,
         P_mean=0.0,
@@ -244,13 +219,16 @@ def main():
         model.train()
 
         # Get next batch from infinite sampler
-        x = next(train_iter)
+        # c = torch.Size([4, 1059, 1799])
+        # x = torch.Size([16, 1059, 1799])
+        c, x = next(train_iter)
+        c = c.to(dist.device, non_blocking=True).to(memory_format=torch.channels_last)
         x = x.to(dist.device, non_blocking=True).to(memory_format=torch.channels_last)
         batch_size = x.shape[0]
 
         # Forward pass
         optimizer.zero_grad(**({} if use_apex else {"set_to_none": True}))
-        loss = loss_fn(x, {}).mean()
+        loss = loss_fn(x, {"input", c}).mean()
 
         # Backward pass and optimize
         loss.backward()

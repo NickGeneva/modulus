@@ -113,4 +113,5 @@ if __name__ == "__main__":
     dataset = HRRRSurfaceDataset(root, time_idx)
     cond, target  = dataset[30]
 
-    print(dataset.target_means, dataset.target_stds, dataset.LOG_VARIABLES)
+    print(cond.shape)
+    print(target.shape)
