@@ -6,6 +6,7 @@ import csv
 import time as pytime
 import asyncio
 import sys
+import shutil
 import xarray as xr
 
 from loguru import logger
@@ -126,6 +127,7 @@ async def pull_hrrr_data(zarr_root: str, time: np.ndarray, variable: str, batch_
         for attempt in range(retries + 1):
             try:
                 da = await ds.fetch(batch_t, variable)
+                shutil.rmtree(ds.cache)
             except Exception:
                 logger.error("Failed to download data, re-attempting...")
                 if attempt < retries:
@@ -144,8 +146,8 @@ async def pull_hrrr_data(zarr_root: str, time: np.ndarray, variable: str, batch_
                 try:
                     arr = await root.get(v)
                     await arr.setitem((t, slice(None), slice(None)), da.values[i, j])
-                except Exception:
-                    logger.error("Write failed, re-attempting...")
+                except Exception as e:
+                    logger.error(f"Write failed {e}, re-attempting...")
                     if attempt < retries:
                         await asyncio.sleep(4)
                     else:
@@ -232,12 +234,16 @@ async def main():
     init_zarr_store(store, time, hrrr_variables)
     
     # Set start time
-    start_date = np.datetime64("2023-03-01T00:00:00")
-    end_date = np.datetime64("2023-05-01T00:00:00")
+    start_date = np.datetime64("2023-08-01T00:00:00")
+    end_date = np.datetime64("2024-01-01T00:00:00")
     sidx = np.where(time == start_date)[0][0]
     eidx = np.where(time == end_date)[0][0]
-    await pull_hrrr_data(store, time[sidx:eidx+1], hrrr_variables, batch_size=12)
-    await pull_hrrr_fx_data(store, time[sidx:eidx+1], hrrr_fx_variables, batch_size=12)
+    step = 24 * 5  # 5-day batches (in hours)
+    for bstart in range(sidx, eidx + 1, step):
+        bend = min(eidx, bstart + step - 1)
+        batch_time = time[bstart:bend + 1]
+        await pull_hrrr_data(store, batch_time, hrrr_variables, batch_size=12),
+        await pull_hrrr_fx_data(store, batch_time, hrrr_fx_variables, batch_size=12)
 
 if __name__ == "__main__":
     asyncio.run(main())
