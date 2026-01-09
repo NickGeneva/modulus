@@ -17,7 +17,9 @@
 import time
 import importlib
 
+import zarr
 import torch
+import numpy as np
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from  torch.utils.data import DataLoader
@@ -28,12 +30,11 @@ from physicsnemo.utils import load_checkpoint, save_checkpoint
 from physicsnemo.distributed.utils import reduce_loss
 
 # TODO: update with base DiffusionUNet once refactor is complete
-from physicsnemo.models.diffusion_unets import SongUNetPosEmbd
 from physicsnemo.diffusion.multi_diffusion import RandomPatching2D
 from physicsnemo.diffusion.utils.utils import InfiniteSampler
 
 # TODO: replace with updated APIs once refactor is complete
-from utils import EDMPreconditioner, EDMLoss, DiffusionAdapter
+from utils import EDMPreconditioner, EDMLoss
 
 from data import HRRRSurfaceDataset
 from nn import HRRRSurfaceDiffusionNet
@@ -119,35 +120,37 @@ def main():
     # train_iter = iter(train_loader)
     # val_iter = iter(val_loader)
 
-    root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v1', mode='r', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
-    time = root['time'][:]
-    sidx = np.where(time == np.datetime64("2023-01-01T00:00:00"))[0][0]
-    eidx = np.where(time == np.datetime64("2023-02-01T00:00:00"))[0][0]
+    # Needs zarr 3.0
+    root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v2', mode='r', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    time_coord = root['time'][:]
+    sidx = np.where(time_coord == np.datetime64("2023-01-01T00:00:00"))[0][0]
+    eidx = np.where(time_coord == np.datetime64("2023-02-01T00:00:00"))[0][0]
     time_idx = np.arange(sidx, eidx)
     dataset = HRRRSurfaceDataset(root, time_idx)
-    train_iter = DataLoader(dataset, batch_size=1, shuffle=True,
-            sampler=InfiniteSampler(shuffle=True),
+    train_iter = DataLoader(dataset, batch_size=1,
+            sampler=InfiniteSampler(dataset=dataset, shuffle=True),
             num_workers=0,
             pin_memory=False,
             drop_last=False,
             timeout=0,
-            prefetch_factor=2,
+            prefetch_factor=None,
             persistent_workers=False)
+    num_training_samples = len(dataset)
 
-    sidx = np.where(time == np.datetime64("2024-01-01T00:00:00"))[0][0]
-    eidx = np.where(time == np.datetime64("2024-02-01T00:00:00"))[0][0]
+    sidx = np.where(time_coord == np.datetime64("2023-02-01T00:00:00"))[0][0]
+    eidx = np.where(time_coord == np.datetime64("2023-03-01T00:00:00"))[0][0]
     time_idx = np.arange(sidx, eidx, 25)
     dataset = HRRRSurfaceDataset(root, time_idx)
-    val_iter = DataLoader(dataset, batch_size=1, shuffle=False,
-            sampler=InfiniteSampler(shuffle=False),
+    val_iter = DataLoader(dataset, batch_size=1,
+            sampler=InfiniteSampler(dataset=dataset, shuffle=False),
             num_workers=0,
             pin_memory=False,
             drop_last=False,
             timeout=0,
-            prefetch_factor=2,
+            prefetch_factor=None,
             persistent_workers=False)
 
-    num_training_samples = train_loader.num_total_samples
+    
 
     # Create loss function with multi-diffusion support
     loss_fn = EDMLoss(
@@ -221,14 +224,14 @@ def main():
         # Get next batch from infinite sampler
         # c = torch.Size([4, 1059, 1799])
         # x = torch.Size([16, 1059, 1799])
-        c, x = next(train_iter)
+        _, (c, x) = next(enumerate(train_iter))
         c = c.to(dist.device, non_blocking=True).to(memory_format=torch.channels_last)
         x = x.to(dist.device, non_blocking=True).to(memory_format=torch.channels_last)
         batch_size = x.shape[0]
 
         # Forward pass
         optimizer.zero_grad(**({} if use_apex else {"set_to_none": True}))
-        loss = loss_fn(x, {"input", c}).mean()
+        loss = loss_fn(x, {"c": c}).mean()
 
         # Backward pass and optimize
         loss.backward()

@@ -5,6 +5,7 @@ from torch import Tensor
 
 from physicsnemo import Module
 from physicsnemo.core import ModelMetaData
+from physicsnemo.models.diffusion_unets import SongUNetPosEmbd
 
 from physicsnemo.diffusion.multi_diffusion import BasePatching2D
 
@@ -24,7 +25,7 @@ class HRRRSurfaceDiffusionNet(Module):
         patch_shape = (448, 448)
         patch_num = 4
 
-        self.patching = 
+        self.patching = patching
 
         # Create model
         channel_mult = [1, 2, 2, 2, 2]
@@ -41,6 +42,7 @@ class HRRRSurfaceDiffusionNet(Module):
             use_apex_gn=use_apex,
         )
 
+    
     def forward(self, x: Tensor, sigma: Tensor, condition: Dict[str, Tensor], **model_kwargs):
 
         x = self.patching.apply(x)

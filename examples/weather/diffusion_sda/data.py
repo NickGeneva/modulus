@@ -60,7 +60,7 @@ class HRRRSurfaceDataset(Dataset):
 
         # Order based on VARIABLES
         for var in self.VARIABLES:
-            mu, sd, _ = stats_map[var]
+            mu, sd = stats_map[var]
             means.append(mu)
             stds.append(sd)
 
