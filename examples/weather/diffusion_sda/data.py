@@ -1,3 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import asyncio
 import datetime
 import csv
 import os
@@ -10,6 +27,17 @@ from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
 
 class HRRRSurfaceDataset(Dataset):
+    """HRRR Surface dataset on S3
+
+    Parameters
+    ----------
+    zarr_root : zarr.group
+        Synchronous zarr store
+    time_indices : np.array
+        Index array of times to use as part of dataset
+    stats_csv : str, optional
+        Stats CSV location, by default "stats/stats.csv"
+    """
 
     VARIABLES = [
         "u10m",
@@ -27,18 +55,23 @@ class HRRRSurfaceDataset(Dataset):
         "refc",
         "rsds",
         "tp",
-        "aerot"
+        "aerot",
     ]
-    LOG_VARIABLES = ("tp", "aerot") # Make sure is consistent with stats CSV
+    LOG_VARIABLES = ("tp", "aerot")  # Make sure is consistent with stats CSV
     EPSILON = 1e-8
 
-    def __init__(self, zarr_root: zarr.group, time_indices: np.array, stats_csv: str = "stats/stats.csv"):
-
-        self.root = zarr_root
+    def __init__(
+        self,
+        zarr_root: zarr.group,
+        time_indices: np.array,
+        stats_csv: str = "stats/stats.csv",
+    ):
+        self.root = zarr_root._async_group
+        self.loop = asyncio.new_event_loop()
         self.idx = np.asarray(time_indices, dtype=int).ravel()
 
         # Verify bounds against available time coordinate in zarr
-        n_time = self.root["time"].size
+        n_time = zarr_root["time"].size
         if np.any((self.idx < 0) | (self.idx >= n_time)):
             invalid_values = np.unique(self.idx[out_of_bounds_mask])
             raise IndexError(
@@ -65,53 +98,101 @@ class HRRRSurfaceDataset(Dataset):
             stds.append(sd)
 
         # Instance-level overrides for normalization and log variables
-        self.target_means = torch.tensor(means, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
-        self.target_stds = torch.tensor(stds, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
-
-        self.grid_lat = self.root["lat"][:]
-        self.grid_lon = self.root["lon"][:]
+        self.target_means = (
+            torch.tensor(means, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
+        )
+        self.target_stds = (
+            torch.tensor(stds, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
+        )
+        # Save zarr coords to memory for use
+        self.grid_lat = zarr_root["lat"][:]
+        self.grid_lon = zarr_root["lon"][:]
+        self.time_array = zarr_root["time"][:]
 
     def __len__(self):
         return self.idx.shape[0]
 
+    async def _zarr_read(
+        self,
+        root,
+        array_name: str,
+        array_idx: int,
+        time_idx: int,
+        data_arrays: np.array,
+    ):
+        arr = await root.get(array_name)
+        arr = await arr.getitem((time_idx, slice(None), slice(None)))
+        if array_name in self.LOG_VARIABLES:
+            data_arrays[array_idx] = np.log(arr + self.EPSILON)
+        else:
+            data_arrays[array_idx] = arr
+
+    async def _get_array(self, idx):
+        # TODO: remove hard code
+        root = await zarr.api.asynchronous.open_group(
+            "s3://hrrr-surface-sda/zarr-v2",
+            mode="r",
+            storage_options={"endpoint_url": "https://pdx.s8k.io"},
+        )
+
+        time_idx = self.idx[idx]
+        data_arrays = np.empty(
+            (len(self.VARIABLES), self.grid_lat.shape[0], self.grid_lat.shape[1])
+        )
+        jobs = []
+        for i, t in enumerate(self.VARIABLES):
+            jobs.append(self._zarr_read(root, t, i, time_idx, data_arrays))
+        await asyncio.gather(*jobs)
+        return data_arrays
+
     def __getitem__(self, idx):
         time_idx = self.idx[idx]
-        time_stamp = self.root['time'][time_idx]
-
-        # Target tensor
-        # TODO: Make async
-        data_arrays = np.empty((len(self.VARIABLES), self.grid_lat.shape[0], self.grid_lat.shape[1]))
-        for i, variable in enumerate(self.VARIABLES):
-            if variable in self.LOG_VARIABLES:
-                data_arrays[i] = np.log(self.root[variable][time_idx] + self.EPSILON)
-            else:
-                data_arrays[i] = self.root[variable][time_idx]
+        time_stamp = self.time_array[time_idx]
+        data_arrays = self.loop.run_until_complete(self._get_array(idx))
 
         target = torch.Tensor(data_arrays)
         target = (target - self.target_means) / self.target_stds
-
         # Conditional encoding
-        data_arrays = np.empty((4, self.grid_lat.shape[0], self.grid_lat.shape[1]))
-        ts = ((time_stamp - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's'))
-        data_arrays[0] = cos_zenith_angle(datetime.datetime.utcfromtimestamp(ts), self.grid_lat, self.grid_lon)
-        data_arrays[1][:] = int((time_stamp.astype('datetime64[D]') - time_stamp.astype('datetime64[Y]')).astype(int) + 1)
-        data_arrays[2] = self.grid_lat
-        data_arrays[3] = self.grid_lon
+        data_arrays = np.empty(
+            (4, self.grid_lat.shape[0], self.grid_lat.shape[1]), dtype=np.float32
+        )
+        ts = (time_stamp - np.datetime64("1970-01-01T00:00:00Z")) / np.timedelta64(
+            1, "s"
+        )
+        data_arrays[0] = cos_zenith_angle(
+            datetime.datetime.utcfromtimestamp(ts), self.grid_lat, self.grid_lon
+        )
+        data_arrays[1][:] = (
+            int(
+                (
+                    time_stamp.astype("datetime64[D]")
+                    - time_stamp.astype("datetime64[Y]")
+                ).astype(int)
+                + 1
+            )
+            / 365.0
+        )
+        data_arrays[2] = self.grid_lat / 90.0
+        data_arrays[3] = self.grid_lon / 360.0
 
         condition = torch.Tensor(data_arrays)
         return condition, target
 
 
 if __name__ == "__main__":
-    root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v1', mode='r', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
-    time = root['time'][:]
+    root = zarr.open_group(
+        store="s3://hrrr-surface-sda/zarr-v2",
+        mode="r",
+        storage_options={"endpoint_url": "https://pdx.s8k.io"},
+    )
+    time = root["time"][:]
     sidx = np.where(time == np.datetime64("2023-01-01T00:00:00"))[0][0]
     eidx = np.where(time == np.datetime64("2023-02-01T00:00:00"))[0][0]
-    
+
     time_idx = np.arange(sidx, eidx)
 
     dataset = HRRRSurfaceDataset(root, time_idx)
-    cond, target  = dataset[30]
+    cond, target = dataset[30]
 
     print(cond.shape)
-    print(target.shape)
+    print(target)
