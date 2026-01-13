@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
@@ -9,18 +25,20 @@ from physicsnemo.models.diffusion_unets import SongUNetPosEmbd
 
 from physicsnemo.diffusion.multi_diffusion import BasePatching2D
 
+
 class HRRRSurfaceDiffusionNet(Module):
     """
     Adapter to make a model callable with the correct
     signature ``forward(x, t, condition, **model_kwargs) -> torch.Tensor``.
     """
+
     # HRRR grid, 16 variables with 4 conditions
     IMG_RESOLUTION = [1059, 1799]
     IMG_CHANNELS = 16 + 4
 
     def __init__(self, patching: BasePatching2D, use_apex: bool = False):
         super().__init__(meta=ModelMetaData())
-        
+
         # Multi-diffusion paramters, defines how large a single diffusion patch is
         patch_shape = (448, 448)
         patch_num = 4
@@ -42,13 +60,13 @@ class HRRRSurfaceDiffusionNet(Module):
             use_apex_gn=use_apex,
         )
 
-    
-    def forward(self, x: Tensor, sigma: Tensor, condition: Dict[str, Tensor], **model_kwargs):
-
+    def forward(
+        self, x: Tensor, sigma: Tensor, condition: Dict[str, Tensor], **model_kwargs
+    ):
         x = self.patching.apply(x)
         _, c = next(iter(condition.items()))
         c = self.patching.apply(c)
-        
+
         x = torch.cat([x, c], dim=1)
         global_index = self.patching.global_index(x.shape[0], x.device)
 
