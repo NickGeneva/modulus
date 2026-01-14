@@ -31,8 +31,10 @@ class HRRRSurfaceDataset(Dataset):
 
     Parameters
     ----------
-    zarr_root : zarr.group
-        Synchronous zarr store
+    zarr_url : str
+        URL to Zarr group (e.g., s3://bucket/path)
+    storage_options : dict, optional
+        Backend/storage kwargs passed to Zarr opener (e.g., endpoint_url)
     time_indices : np.array
         Index array of times to use as part of dataset
     stats_csv : str, optional
@@ -62,16 +64,20 @@ class HRRRSurfaceDataset(Dataset):
 
     def __init__(
         self,
-        zarr_root: zarr.group,
+        zarr_url: str,
         time_indices: np.array,
         stats_csv: str = "stats/stats.csv",
+        storage_options: dict | None = None,
     ):
-        self.root = zarr_root._async_group
-        self.loop = asyncio.new_event_loop()
+        self.zarr_url = zarr_url
+        self.storage_options = storage_options or {}
         self.idx = np.asarray(time_indices, dtype=int).ravel()
 
         # Verify bounds against available time coordinate in zarr
-        n_time = zarr_root["time"].size
+        _root = zarr.open_group(
+            store=self.zarr_url, mode="r", storage_options=self.storage_options
+        )
+        n_time = _root["time"].size
         if np.any((self.idx < 0) | (self.idx >= n_time)):
             invalid_values = np.unique(self.idx[out_of_bounds_mask])
             raise IndexError(
@@ -105,9 +111,9 @@ class HRRRSurfaceDataset(Dataset):
             torch.tensor(stds, dtype=torch.float32).unsqueeze(-1).unsqueeze(-1)
         )
         # Save zarr coords to memory for use
-        self.grid_lat = zarr_root["lat"][:]
-        self.grid_lon = zarr_root["lon"][:]
-        self.time_array = zarr_root["time"][:]
+        self.grid_lat = _root["lat"][:]
+        self.grid_lon = _root["lon"][:]
+        self.time_array = _root["time"][:]
 
     def __len__(self):
         return self.idx.shape[0]
@@ -128,11 +134,8 @@ class HRRRSurfaceDataset(Dataset):
             data_arrays[array_idx] = arr
 
     async def _get_array(self, idx):
-        # TODO: remove hard code
         root = await zarr.api.asynchronous.open_group(
-            "s3://hrrr-surface-sda/zarr-v2",
-            mode="r",
-            storage_options={"endpoint_url": "https://pdx.s8k.io"},
+            self.zarr_url, mode="r", storage_options=self.storage_options
         )
 
         time_idx = self.idx[idx]
@@ -148,7 +151,7 @@ class HRRRSurfaceDataset(Dataset):
     def __getitem__(self, idx):
         time_idx = self.idx[idx]
         time_stamp = self.time_array[time_idx]
-        data_arrays = self.loop.run_until_complete(self._get_array(idx))
+        data_arrays = asyncio.run(self._get_array(idx))
 
         target = torch.Tensor(data_arrays)
         target = (target - self.target_means) / self.target_stds

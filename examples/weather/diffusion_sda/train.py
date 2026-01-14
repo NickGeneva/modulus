@@ -49,14 +49,14 @@ torch._logging.set_logs(recompiles=True, graph_breaks=True)
 
 def main():
     # Configuration
-    batch_size_per_gpu = 64
+    batch_size_per_gpu = 1
     load_checkpoint_from_file = False
     checkpoint_dir = "./checkpoints"
-    max_training_samples = 10000000
-    checkpoint_frequency = 100000
-    validation_frequency = 10000
-    num_validation_samples = 1000
-    logging_frequency = 1000
+    max_training_samples = 365*24*10
+    checkpoint_frequency = 1000
+    validation_frequency = 1000
+    num_validation_samples = 100
+    logging_frequency = 1
     use_apex = False
 
     # Initialize distributed environment
@@ -65,6 +65,9 @@ def main():
 
     # Setup logging
     logger = PythonLogger("main")
+    logger.logger.setLevel("INFO")
+    import logging
+    logger.logger.addHandler(logging.StreamHandler())
     rank_zero_logger = RankZeroLoggingWrapper(logger, dist)
 
 
@@ -81,9 +84,7 @@ def main():
             model=model,
             sigma_data=1.0,
         )
-        .to(dist.device)
-        .to(memory_format=torch.channels_last)
-    )
+    ).to(dist.device).to(memory_format=torch.channels_last)
     rank_zero_logger.info(f"Training model with {model.num_parameters()} parameters.")
 
     # Setup DDP for multi-GPU training
@@ -104,53 +105,36 @@ def main():
     # Compile model
     model = torch.compile(model)
 
-    # TODO-NG: Create training and validation dataloaders with InfiniteSampler.
-    # Requirements:
-    # - The data has to be z-score normalized per-channel (mean=0, std=1). (we
-    #   need a stats.json to denormalize the data back to the original scale
-    #   later on)
-    # - Use InfiniteSampler for infinite iteration
-    # - Need to take an input batch_size_per_gpu
-    # - Must have a attribute num_total_samples that returns the total number
-    #   of samples in the dataset (NOT per GPU but for the entire dataset).
-    # - The data type returned should be float32.
-    # - Other arguments like pin_memory, num_workers, etc. could also be useful here
-    # train_loader = HRRRDataPipe(path_to_data, batch_size_per_gpu, "train")
-    # val_loader = HRRRDataPipe(path_to_data, batch_size_per_gpu, "val")
-    # train_iter = iter(train_loader)
-    # val_iter = iter(val_loader)
-
+    # Create data loaders
     # Needs zarr 3.0
     root = zarr.open_group(store='s3://hrrr-surface-sda/zarr-v2', mode='r', storage_options={'endpoint_url': 'https://pdx.s8k.io'})
     time_coord = root['time'][:]
     sidx = np.where(time_coord == np.datetime64("2023-01-01T00:00:00"))[0][0]
-    eidx = np.where(time_coord == np.datetime64("2023-02-01T00:00:00"))[0][0]
+    eidx = np.where(time_coord == np.datetime64("2024-12-31T23:00:00"))[0][0]
     time_idx = np.arange(sidx, eidx)
-    dataset = HRRRSurfaceDataset(root, time_idx)
-    train_iter = DataLoader(dataset, batch_size=1,
+    dataset = HRRRSurfaceDataset("s3://hrrr-surface-sda/zarr-v2", time_idx, storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    train_iter = DataLoader(dataset, batch_size=batch_size_per_gpu,
             sampler=InfiniteSampler(dataset=dataset, shuffle=True),
-            num_workers=0,
+            num_workers=4,
             pin_memory=False,
             drop_last=False,
             timeout=0,
-            prefetch_factor=None,
+            prefetch_factor=2,
             persistent_workers=False)
     num_training_samples = len(dataset)
 
-    sidx = np.where(time_coord == np.datetime64("2023-02-01T00:00:00"))[0][0]
-    eidx = np.where(time_coord == np.datetime64("2023-03-01T00:00:00"))[0][0]
+    sidx = np.where(time_coord == np.datetime64("2025-01-01T00:00:00"))[0][0]
+    eidx = np.where(time_coord == np.datetime64("2025-06-01T00:00:00"))[0][0]
     time_idx = np.arange(sidx, eidx, 25)
-    dataset = HRRRSurfaceDataset(root, time_idx)
-    val_iter = DataLoader(dataset, batch_size=1,
+    dataset = HRRRSurfaceDataset("s3://hrrr-surface-sda/zarr-v2", time_idx, storage_options={'endpoint_url': 'https://pdx.s8k.io'})
+    val_iter = DataLoader(dataset, batch_size=batch_size_per_gpu,
             sampler=InfiniteSampler(dataset=dataset, shuffle=False),
-            num_workers=0,
+            num_workers=2,
             pin_memory=False,
             drop_last=False,
             timeout=0,
-            prefetch_factor=None,
+            prefetch_factor=2,
             persistent_workers=False)
-
-    
 
     # Create loss function with multi-diffusion support
     loss_fn = EDMLoss(
@@ -237,11 +221,11 @@ def main():
         loss.backward()
         optimizer.step()
 
-        mean_loss = reduce_loss(loss.item() * batch_size, dst_rank=0) / total_batch_size
+        mean_loss = reduce_loss(loss.item() * batch_size, dst_rank=0) 
 
         # Update running mean of loss
         if dist.rank == 0:
-            loss_running_mean += (mean_loss - loss_running_mean) / n_loss_running_mean
+            loss_running_mean += (mean_loss / total_batch_size - loss_running_mean) / n_loss_running_mean
             n_loss_running_mean += 1
             current_samples_trained += total_batch_size
 

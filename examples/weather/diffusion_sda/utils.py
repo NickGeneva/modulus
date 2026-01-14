@@ -56,7 +56,7 @@ class EDMPreconditioner(Module):
                     f"but got {condition.values()} instead."
                 )
 
-        sigma = t.view(B, *((1,) * (x.ndim - 1)))
+        sigma = t.view(x.shape[0], *((1,) * (x.ndim - 1)))
 
         c_skip = self.sigma_data**2 / (sigma**2 + self.sigma_data**2)
         c_out = sigma * self.sigma_data / (sigma**2 + self.sigma_data**2).sqrt()
@@ -134,6 +134,11 @@ class EDMLoss:
         """
         Calculate and return the loss corresponding to the EDM formulation.
         """
+        if self.patching:
+            x = self.patching.apply(x)
+            for cond_name, y_cond in condition.items():
+                condition[cond_name] = self.patching.apply(input=y_cond)
+        
         # Compute noise parameters
         n, sigma, weight = self.get_noise_params(x)
 
