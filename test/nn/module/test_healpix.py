@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from physicsnemo.nn.hpx import (
+from physicsnemo.nn.module.hpx import (
     HEALPixAvgPool,
     HEALPixLayer,
     HEALPixMaxPool,
@@ -26,11 +26,11 @@ from physicsnemo.nn.hpx import (
     HPXPatchDetokenizer,
     HPXPatchTokenizer,
 )
-from physicsnemo.nn.hpx.padding import (
+from physicsnemo.nn.module.hpx.padding import (
     HEALPixFoldFaces,
     HEALPixUnfoldFaces,
 )
-from physicsnemo.nn.hpx.tokenizers import (
+from physicsnemo.nn.module.hpx.tokenizers import (
     CalendarEmbedding,
     FrequencyEmbedding,
 )
