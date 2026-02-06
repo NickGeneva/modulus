@@ -23,10 +23,16 @@ from physicsnemo.nn.hpx import (
     HEALPixLayer,
     HEALPixMaxPool,
     HEALPixPadding,
+    HPXPatchDetokenizer,
+    HPXPatchTokenizer,
 )
 from physicsnemo.nn.hpx.padding import (
     HEALPixFoldFaces,
     HEALPixUnfoldFaces,
+)
+from physicsnemo.nn.hpx.tokenizers import (
+    CalendarEmbedding,
+    FrequencyEmbedding,
 )
 from test import common
 from test.conftest import requires_module
@@ -214,3 +220,128 @@ def test_AvgPool_forward(device, test_data, pytestconfig):
     outvar = outvar * 0.5
 
     assert common.compare_output(outvar, avgpool_block(invar))
+
+
+@requires_module("earth2grid")
+def test_hpx_patch_tokenizer_forward(device):
+    """Test HPXPatchTokenizer forward pass."""
+    torch.manual_seed(0)
+
+    in_channels = 5
+    hidden_size = 64
+    level_fine = 5
+    level_coarse = 3
+
+    model = HPXPatchTokenizer(
+        in_channels=in_channels,
+        hidden_size=hidden_size,
+        level_fine=level_fine,
+        level_coarse=level_coarse,
+    ).to(device)
+    model.eval()
+
+    b, t = 2, 1
+    npix = 12 * 4**level_fine
+    x = torch.randn(b, in_channels, t, npix, device=device)
+    second_of_day = torch.tensor([[43200], [21600]], device=device)
+    day_of_year = torch.tensor([[100], [200]], device=device)
+
+    assert common.validate_forward_accuracy(
+        model,
+        (x, second_of_day, day_of_year),
+        file_name="models/healda/data/hpx_tokenizer_output.pth",
+        atol=1e-4,
+    )
+
+
+# HealDA embedders used in tokenizers
+@requires_module("earth2grid")
+def test_frequency_embedding_forward(device):
+    """Test FrequencyEmbedding forward pass."""
+    torch.manual_seed(0)
+
+    num_channels = 8
+    model = FrequencyEmbedding(num_channels=num_channels).to(device)
+    model.eval()
+
+    inp = torch.randn(2, 3, 50, device=device)
+
+    assert common.validate_forward_accuracy(
+        model,
+        (inp,),
+        file_name="models/healda/data/frequency_embedding_output.pth",
+        atol=1e-5,
+    )
+
+
+@requires_module("earth2grid")
+def test_calendar_embedding_forward(device):
+    """Test CalendarEmbedding forward pass."""
+    torch.manual_seed(0)
+
+    npix = 50
+    embed_channels = 4
+    lon = torch.linspace(-180, 180, npix, device=device)
+    model = CalendarEmbedding(lon=lon, embed_channels=embed_channels).to(device)
+    model.eval()
+
+    day_of_year = torch.tensor([[100, 150, 200], [50, 100, 150]], device=device)
+    second_of_day = torch.tensor(
+        [[43200, 21600, 64800], [0, 43200, 86399]], device=device
+    )
+
+    assert common.validate_forward_accuracy(
+        model,
+        (day_of_year, second_of_day),
+        file_name="models/healda/data/calendar_embedding_output.pth",
+        atol=1e-5,
+    )
+
+
+@requires_module("earth2grid")
+def test_calendar_embedding_shape_mismatch():
+    """Test CalendarEmbedding raises on shape mismatch."""
+    lon = torch.linspace(-180, 180, 10)
+    model = CalendarEmbedding(lon=lon, embed_channels=4)
+
+    day_of_year = torch.tensor([[100, 101]])
+    second_of_day = torch.tensor([[43200]])
+
+    with pytest.raises(ValueError):
+        model(day_of_year=day_of_year, second_of_day=second_of_day)
+
+
+# HealDA tokenizers
+
+
+@requires_module("earth2grid")
+def test_hpx_patch_detokenizer_forward(device):
+    """Test HPXPatchDetokenizer forward pass."""
+    torch.manual_seed(0)
+
+    hidden_size = 64
+    out_channels = 5
+    level_coarse = 3
+    level_fine = 5
+    time_length = 2
+
+    model = HPXPatchDetokenizer(
+        hidden_size=hidden_size,
+        out_channels=out_channels,
+        level_coarse=level_coarse,
+        level_fine=level_fine,
+        time_length=time_length,
+    ).to(device)
+    model.eval()
+
+    b = 2
+    L = time_length * 12 * 4**level_coarse
+    x = torch.randn(b, L, hidden_size, device=device)
+    c = torch.randn(b, hidden_size, device=device)
+
+    assert common.validate_forward_accuracy(
+        model,
+        (x, c),
+        file_name="models/healda/data/hpx_detokenizer_output.pth",
+        atol=1e-4,
+    )
