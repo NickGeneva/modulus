@@ -23,8 +23,8 @@ from physicsnemo.nn.module.hpx import (
     HEALPixLayer,
     HEALPixMaxPool,
     HEALPixPadding,
-    HPXPatchDetokenizer,
-    HPXPatchTokenizer,
+    HEALPixPatchDetokenizer,
+    HEALPixPatchTokenizer,
 )
 from physicsnemo.nn.module.hpx.padding import (
     HEALPixFoldFaces,
@@ -224,7 +224,7 @@ def test_AvgPool_forward(device, test_data, pytestconfig):
 
 @requires_module("earth2grid")
 def test_hpx_patch_tokenizer_forward(device):
-    """Test HPXPatchTokenizer forward pass."""
+    """Test HEALPixPatchTokenizer forward pass."""
     torch.manual_seed(0)
 
     in_channels = 5
@@ -232,7 +232,7 @@ def test_hpx_patch_tokenizer_forward(device):
     level_fine = 5
     level_coarse = 3
 
-    model = HPXPatchTokenizer(
+    model = HEALPixPatchTokenizer(
         in_channels=in_channels,
         hidden_size=hidden_size,
         level_fine=level_fine,
@@ -316,7 +316,7 @@ def test_calendar_embedding_shape_mismatch():
 
 @requires_module("earth2grid")
 def test_hpx_patch_detokenizer_forward(device):
-    """Test HPXPatchDetokenizer forward pass."""
+    """Test HEALPixPatchDetokenizer forward pass."""
     torch.manual_seed(0)
 
     hidden_size = 64
@@ -325,7 +325,7 @@ def test_hpx_patch_detokenizer_forward(device):
     level_fine = 5
     time_length = 2
 
-    model = HPXPatchDetokenizer(
+    model = HEALPixPatchDetokenizer(
         hidden_size=hidden_size,
         out_channels=out_channels,
         level_coarse=level_coarse,
