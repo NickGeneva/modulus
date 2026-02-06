@@ -40,7 +40,7 @@ else:
         )
 
 
-class HEALPixPatchTokenizer:
+class HEALPixPatchTokenizer(nn.Module):
     r"""
     ViT-style tokenizer for HEALPix data.
 
@@ -160,7 +160,7 @@ class HEALPixPatchTokenizer:
         return x
 
 
-class HEALPixPatchDetokenizer:
+class HEALPixPatchDetokenizer(nn.Module):
     r"""
     HEALPix patch detokenizer for DiT integration.
 

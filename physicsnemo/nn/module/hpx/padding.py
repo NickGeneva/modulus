@@ -86,7 +86,9 @@ class HEALPixPadding(torch.nn.Module):
         r"""Pad each face consistently with its neighbors on the HEALPix grid."""
         if not torch.compiler.is_compiling():
             if data.ndim != 4:
-                raise ValueError("HEALPixPadding.forward", data, "a 4D tensor")
+                raise ValueError(
+                    f"HEALPixPadding.forward requires a 4D tensor, got {data.shape}"
+                )
 
         if torch.cuda.is_available():
             torch.cuda.nvtx.range_push("HEALPixPadding:forward")
@@ -386,7 +388,9 @@ class HEALPixFoldFaces(torch.nn.Module):
             Folded tensor of shape :math:`(B \cdot F, C, H, W)`.
         """
         if not torch.compiler.is_compiling() and tensor.ndim != 5:
-            ValueError(f"HEALPixFoldFaces.forward invalid shape: {tensor.shape}")
+            ValueError(
+                f"HEALPixFoldFaces.forward requires 5D tensor, got {tensor.shape}"
+            )
 
         batch, faces, channels, height, width = tensor.shape
         folded = torch.reshape(tensor, shape=(batch * faces, channels, height, width))
@@ -449,10 +453,12 @@ class HEALPixUnfoldFaces(torch.nn.Module):
         """
         if not torch.compiler.is_compiling():
             if tensor.ndim != 4:
-                ValueError(f"HEALPixUnfoldFaces.forward invalid shape: {tensor.shape}")
+                ValueError(
+                    f"HEALPixUnfoldFaces.forward requires 4D tensor, got {tensor.shape}"
+                )
             if tensor.shape[0] % self.num_faces != 0:
                 ValueError(
-                    f"HEALPixUnfoldFaces.forward invalid batch: {tensor.shape[0]}"
+                    f"HEALPixUnfoldFaces.forward invalid batch size: {tensor.shape[0]}"
                 )
 
         batch_faces, channels, height, width = tensor.shape
