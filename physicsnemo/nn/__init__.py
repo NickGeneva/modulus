@@ -17,15 +17,6 @@
 # Make physicsnemo.nn.Module an available import like torch.nn.Module
 from physicsnemo.core import Module
 
-from .healpix import (
-    HEALPixAvgPool,
-    HEALPixFoldFaces,
-    HEALPixLayer,
-    HEALPixMaxPool,
-    HEALPixPadding,
-    HEALPixPaddingv2,
-    HEALPixUnfoldFaces,
-)
 from .module.activations import (
     CappedGELU,
     CappedLeakyReLU,
