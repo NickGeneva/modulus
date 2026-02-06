@@ -61,6 +61,15 @@ from .module.fully_connected_layers import (
 )
 from .module.group_norm import GroupNorm, get_group_norm
 from .module.gumbel_softmax import GumbelSoftmax, gumbel_softmax
+from .module.hpx import (
+    HEALPixAvgPool,
+    HEALPixLayer,
+    HEALPixMaxPool,
+    HEALPixPadding,
+    HEALPixPaddingv2,
+    HEALPixPatchDetokenizer,
+    HEALPixPatchTokenizer,
+)
 from .module.kan_layers import KolmogorovArnoldNetwork
 from .module.mlp_layers import Mlp
 from .module.resample_layers import (
