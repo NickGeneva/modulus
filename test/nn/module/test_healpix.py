@@ -18,12 +18,14 @@ import numpy as np
 import pytest
 import torch
 
-from physicsnemo.nn import (
+from physicsnemo.nn.hpx import (
     HEALPixAvgPool,
-    HEALPixFoldFaces,
     HEALPixLayer,
     HEALPixMaxPool,
     HEALPixPadding,
+)
+from physicsnemo.nn.hpx.padding import (
+    HEALPixFoldFaces,
     HEALPixUnfoldFaces,
 )
 from test import common
@@ -51,13 +53,13 @@ def test_data():
     return generate_test_data
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_HEALPixFoldFaces_initialization(device, pytestconfig):
     fold_func = HEALPixFoldFaces()
     assert isinstance(fold_func, HEALPixFoldFaces)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_HEALPixFoldFaces_forward(device, pytestconfig):
     fold_func = HEALPixFoldFaces()
 
@@ -73,13 +75,13 @@ def test_HEALPixFoldFaces_forward(device, pytestconfig):
     assert fold_func(invar).stride() != outvar.stride()
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_HEALPixUnfoldFaces_initialization(device, pytestconfig):
     unfold_func = HEALPixUnfoldFaces()
     assert isinstance(unfold_func, HEALPixUnfoldFaces)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_HEALPixUnfoldFaces_forward(device, pytestconfig):
     num_faces = 12
     unfold_func = HEALPixUnfoldFaces()
@@ -94,14 +96,14 @@ def test_HEALPixUnfoldFaces_forward(device, pytestconfig):
     assert outvar.shape == output_size
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 @pytest.mark.parametrize("padding", [2, 3, 4])
 def test_HEALPixPadding_initialization(device, padding, pytestconfig):
     pad_func = HEALPixPadding(padding)
     assert isinstance(pad_func, HEALPixPadding)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 @pytest.mark.parametrize("padding", [2, 3, 4])
 def test_HEALPixPadding_forward(device, padding, pytestconfig):
     num_faces = 12
@@ -127,14 +129,14 @@ def test_HEALPixPadding_forward(device, padding, pytestconfig):
     assert outvar.shape == out_size
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 @pytest.mark.parametrize("multiplier", [2, 3, 4])
 def test_HEALPixLayer_initialization(device, multiplier, pytestconfig):
     layer = HEALPixLayer(layer=MulX, multiplier=multiplier)
     assert isinstance(layer, HEALPixLayer)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 @pytest.mark.parametrize("multiplier", [2, 3, 4])
 def test_HEALPixLayer_forward(device, multiplier, pytestconfig):
     layer = HEALPixLayer(layer=MulX, multiplier=multiplier)
@@ -168,14 +170,14 @@ def test_HEALPixLayer_forward(device, multiplier, pytestconfig):
     assert expected_shape == layer(invar).shape
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_MaxPool_initialization(device, pytestconfig):
     pooling = 2
     maxpool_block = HEALPixMaxPool(pooling=pooling).to(device)
     assert isinstance(maxpool_block, HEALPixMaxPool)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_MaxPool_forward(device, test_data, pytestconfig):
     pooling = 2
     size = 16
@@ -190,14 +192,14 @@ def test_MaxPool_forward(device, test_data, pytestconfig):
     assert common.compare_output(outvar, maxpool_block(invar))
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_AvgPool_initialization(device, pytestconfig):
     pooling = 2
     avgpool_block = HEALPixAvgPool(pooling=pooling).to(device)
     assert isinstance(avgpool_block, HEALPixAvgPool)
 
 
-@requires_module("hydra")
+@requires_module("earth2grid")
 def test_AvgPool_forward(device, test_data, pytestconfig):
     pooling = 2
     size = 32

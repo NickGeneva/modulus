@@ -23,6 +23,21 @@ import einops
 import torch
 import torch.nn as nn
 
+HEALPIXPAD_AVAILABLE = check_version_spec("earth2grid", "0.1.0", hard_fail=False)
+
+if HEALPIXPAD_AVAILABLE:
+    hpx_grid = importlib.import_module("earth2grid.healpix").Grid
+    HEALPIX_PAD_XY = importlib.import_module("earth2grid.healpix").HEALPIX_PAD_XY
+else:
+    HEALPIX_PAD_XY = None
+
+    def hpx_grid(*args, **kwargs):
+        """Dummy symbol for missing earth2grid backend."""
+        raise ImportError(
+            "earth2grid is not installed which is required for the HealPixPatchTokenizer. "
+            "Install earth2grid from https://github.com/NVlabs/earth2grid.git"
+        )
+
 
 class HEALPixPatchTokenizer:
     r"""
@@ -60,8 +75,6 @@ class HEALPixPatchTokenizer:
         :math:`D=\\mathrm{hidden\\_size}`.
     """
 
-    pixel_order = earth2grid.healpix.HEALPIX_PAD_XY
-
     def __init__(
         self,
         *,
@@ -91,7 +104,7 @@ class HEALPixPatchTokenizer:
         self.pos_embed = nn.Parameter(torch.randn(npix_coarse, hidden_size))
 
         # Calendar embedding
-        grid = earth2grid.healpix.Grid(level=level_coarse, pixel_order=self.pixel_order)
+        grid = hpx_grid(level=level_coarse, pixel_order=HEALPIX_PAD_XY)
         lon = torch.as_tensor(grid.lon)
         if hidden_size % 4 != 0:
             raise ValueError(f"hidden_size must be divisible by 4, got {hidden_size}")

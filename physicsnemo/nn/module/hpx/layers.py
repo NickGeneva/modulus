@@ -25,26 +25,6 @@ from physicsnemo.core.version_check import check_version_spec
 
 from .layers import HEALPixPadding, HEALPixPaddingv2
 
-HEALPIXPAD_AVAILABLE = check_version_spec("earth2grid", "0.1.0", hard_fail=False)
-
-if HEALPIXPAD_AVAILABLE:
-    hpx_pad = importlib.import_module("earth2grid.healpix._padding").pad
-else:
-
-    def hpx_pad(*args, **kwargs):
-        """Dummy symbol for missing earth2grid backend."""
-        raise ImportError(
-            "earth2grid is not installed, cannot use it as a backend for HEALPix "
-            "padding. Install earth2grid from https://github.com/NVlabs/earth2grid.git "
-            "to enable the accelerated path."
-        )
-
-
-def _raise_shape_error(name: str, tensor: torch.Tensor, message: str) -> None:
-    raise ValueError(
-        f"{name}: expected {message}, received tensor with shape {tuple(tensor.shape)}"
-    )
-
 
 class HEALPixLayer(torch.nn.Module):
     r"""
