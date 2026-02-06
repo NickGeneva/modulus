@@ -16,5 +16,5 @@
 
 from .layers import HEALPixLayer
 from .padding import HEALPixPadding, HEALPixPaddingv2
-from .pool import HEALPixAvgPool, HEALPixMaxPool
+from .pool import HEALPixAvgPool, HEALPixFoldFaces, HEALPixMaxPool, HEALPixUnfoldFaces
 from .tokenizer import HEALPixPatchDetokenizer, HEALPixPatchTokenizer
