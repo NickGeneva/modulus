@@ -16,14 +16,14 @@
 
 """Reusable HEALPix tensor utilities and padding layers."""
 
-import importlib
-
 import torch
 from jaxtyping import Float
 
 from physicsnemo.core.version_check import check_version_spec
 
 from .layers import HEALPixPadding, HEALPixPaddingv2
+
+HEALPIXPAD_AVAILABLE = check_version_spec("earth2grid", "0.1.0", hard_fail=False)
 
 
 class HEALPixLayer(torch.nn.Module):
