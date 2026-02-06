@@ -14,14 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import math
 from typing import Optional
 
-import earth2grid
-import earth2grid.healpix
 import einops
 import torch
 import torch.nn as nn
+
+from physicsnemo.core.version_check import check_version_spec
 
 HEALPIXPAD_AVAILABLE = check_version_spec("earth2grid", "0.1.0", hard_fail=False)
 
