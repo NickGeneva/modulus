@@ -63,12 +63,14 @@ from .module.group_norm import GroupNorm, get_group_norm
 from .module.gumbel_softmax import GumbelSoftmax, gumbel_softmax
 from .module.hpx import (
     HEALPixAvgPool,
+    HEALPixFoldFaces,
     HEALPixLayer,
     HEALPixMaxPool,
     HEALPixPadding,
     HEALPixPaddingv2,
     HEALPixPatchDetokenizer,
     HEALPixPatchTokenizer,
+    HEALPixUnFoldFaces,
 )
 from .module.kan_layers import KolmogorovArnoldNetwork
 from .module.mlp_layers import Mlp
