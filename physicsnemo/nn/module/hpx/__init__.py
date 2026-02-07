@@ -15,6 +15,11 @@
 # limitations under the License.
 
 from .layers import HEALPixLayer
-from .padding import HEALPixPadding, HEALPixPaddingv2
-from .pool import HEALPixAvgPool, HEALPixFoldFaces, HEALPixMaxPool, HEALPixUnfoldFaces
+from .padding import (
+    HEALPixFoldFaces,
+    HEALPixPadding,
+    HEALPixPaddingv2,
+    HEALPixUnfoldFaces,
+)
+from .pool import HEALPixAvgPool, HEALPixMaxPool
 from .tokenizer import HEALPixPatchDetokenizer, HEALPixPatchTokenizer
