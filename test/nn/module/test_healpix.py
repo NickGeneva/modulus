@@ -30,7 +30,7 @@ from physicsnemo.nn.module.hpx.padding import (
     HEALPixFoldFaces,
     HEALPixUnfoldFaces,
 )
-from physicsnemo.nn.module.hpx.tokenizers import (
+from physicsnemo.nn.module.hpx.tokenizer import (
     CalendarEmbedding,
     FrequencyEmbedding,
 )
