@@ -23,7 +23,7 @@ from physicsnemo.nn import (
     HEALPixPadding,
     HEALPixPaddingv2,
 )
-from physicsnemo.nn.modules.hpx import (
+from physicsnemo.nn.module.hpx import (
     HEALPixFoldFaces,
     HEALPixUnfoldFaces,
 )
