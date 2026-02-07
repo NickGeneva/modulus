@@ -70,7 +70,7 @@ from .module.hpx import (
     HEALPixPaddingv2,
     HEALPixPatchDetokenizer,
     HEALPixPatchTokenizer,
-    HEALPixUnFoldFaces,
+    HEALPixUnfoldFaces,
 )
 from .module.kan_layers import KolmogorovArnoldNetwork
 from .module.mlp_layers import Mlp
