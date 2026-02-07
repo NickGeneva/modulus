@@ -74,9 +74,9 @@ def _remap_target(target: str) -> str:
     if target.startswith("physicsnemo.models.dlwp_healpix_layers.healpix_blocks."):
         cls_name = target.split(".")[-1]
         if cls_name == "AvgPool":
-            return "physicsnemo.nn.module.hpx.HEALPixAvgPool"
+            return "physicsnemo.nn.HEALPixAvgPool"
         if cls_name == "MaxPool":
-            return "physicsnemo.nn.module.hpx.HEALPixMaxPool"
+            return "physicsnemo.nn.HEALPixMaxPool"
         return f"physicsnemo.models.dlwp_healpix.layers.{cls_name}"
 
     if target.startswith("physicsnemo.models.dlwp_healpix_layers.healpix_encoder."):
@@ -94,9 +94,9 @@ def _remap_target(target: str) -> str:
     if target.startswith("physicsnemo.models.dlwp_healpix_layers."):
         cls_name = target.split(".")[-1]
         if cls_name == "AvgPool":
-            return "physicsnemo.nn.module.hpx.HEALPixAvgPool"
+            return "physicsnemo.nn.HEALPixAvgPool"
         if cls_name == "MaxPool":
-            return "physicsnemo.nn.module.hpx.HEALPixMaxPool"
+            return "physicsnemo.nn.HEALPixMaxPool"
         if cls_name.startswith("HEALPix"):
             return f"physicsnemo.nn.module.hpx.{cls_name}"
         return f"physicsnemo.models.dlwp_healpix.layers.{cls_name}"
@@ -104,9 +104,9 @@ def _remap_target(target: str) -> str:
     if target.startswith("physicsnemo.models.dlwp_healpix.layers.healpix_blocks."):
         cls_name = target.split(".")[-1]
         if cls_name == "AvgPool":
-            return "physicsnemo.nn.module.hpx.HEALPixAvgPool"
+            return "physicsnemo.nn.HEALPixAvgPool"
         if cls_name == "MaxPool":
-            return "physicsnemo.nn.module.hpx.HEALPixMaxPool"
+            return "physicsnemo.nn.HEALPixMaxPool"
         return f"physicsnemo.models.dlwp_healpix.layers.{cls_name}"
 
     if target.startswith("physicsnemo.models.dlwp_healpix.layers.healpix_encoder."):
