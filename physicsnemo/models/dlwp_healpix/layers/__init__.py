@@ -18,11 +18,13 @@
 
 from physicsnemo.nn import (
     HEALPixAvgPool,
-    HEALPixFoldFaces,
     HEALPixLayer,
     HEALPixMaxPool,
     HEALPixPadding,
     HEALPixPaddingv2,
+)
+from physicsnemo.nn.modules.hpx import (
+    HEALPixFoldFaces,
     HEALPixUnfoldFaces,
 )
 
