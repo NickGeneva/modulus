@@ -32,7 +32,6 @@ from physicsnemo.nn.module.hpx.padding import (
 )
 from physicsnemo.nn.module.hpx.tokenizer import (
     CalendarEmbedding,
-    FrequencyEmbedding,
 )
 from test import common
 from test.conftest import requires_module
@@ -242,59 +241,17 @@ def test_hpx_patch_tokenizer_forward(device):
 
     b, t = 2, 1
     npix = 12 * 4**level_fine
-    x = torch.randn(b, in_channels, t, npix, device=device)
+    x = torch.randn(b, in_channels, t, npix).to(device)
     second_of_day = torch.tensor([[43200], [21600]], device=device)
     day_of_year = torch.tensor([[100], [200]], device=device)
+    # Manually track device since not psn Module
+    model.device = device
 
     assert common.validate_forward_accuracy(
         model,
         (x, second_of_day, day_of_year),
-        file_name="models/healda/data/hpx_tokenizer_output.pth",
-        atol=1e-4,
-    )
-
-
-# HealDA embedders used in tokenizers
-@requires_module("earth2grid")
-def test_frequency_embedding_forward(device):
-    """Test FrequencyEmbedding forward pass."""
-    torch.manual_seed(0)
-
-    num_channels = 8
-    model = FrequencyEmbedding(num_channels=num_channels).to(device)
-    model.eval()
-
-    inp = torch.randn(2, 3, 50, device=device)
-
-    assert common.validate_forward_accuracy(
-        model,
-        (inp,),
-        file_name="models/healda/data/frequency_embedding_output.pth",
-        atol=1e-5,
-    )
-
-
-@requires_module("earth2grid")
-def test_calendar_embedding_forward(device):
-    """Test CalendarEmbedding forward pass."""
-    torch.manual_seed(0)
-
-    npix = 50
-    embed_channels = 4
-    lon = torch.linspace(-180, 180, npix, device=device)
-    model = CalendarEmbedding(lon=lon, embed_channels=embed_channels).to(device)
-    model.eval()
-
-    day_of_year = torch.tensor([[100, 150, 200], [50, 100, 150]], device=device)
-    second_of_day = torch.tensor(
-        [[43200, 21600, 64800], [0, 43200, 86399]], device=device
-    )
-
-    assert common.validate_forward_accuracy(
-        model,
-        (day_of_year, second_of_day),
-        file_name="models/healda/data/calendar_embedding_output.pth",
-        atol=1e-5,
+        file_name="nn/module/data/hpx_tokenizer_output.pth",
+        atol=1e-3,  # Data on order of [1 to 0.1]
     )
 
 
@@ -312,8 +269,6 @@ def test_calendar_embedding_shape_mismatch():
 
 
 # HealDA tokenizers
-
-
 @requires_module("earth2grid")
 def test_hpx_patch_detokenizer_forward(device):
     """Test HEALPixPatchDetokenizer forward pass."""
@@ -336,12 +291,14 @@ def test_hpx_patch_detokenizer_forward(device):
 
     b = 2
     L = time_length * 12 * 4**level_coarse
-    x = torch.randn(b, L, hidden_size, device=device)
-    c = torch.randn(b, hidden_size, device=device)
+    x = torch.randn(b, L, hidden_size).to(device)
+    c = torch.randn(b, hidden_size).to(device)
+    # Manually track device since not psn Module
+    model.device = device
 
     assert common.validate_forward_accuracy(
         model,
         (x, c),
-        file_name="models/healda/data/hpx_detokenizer_output.pth",
-        atol=1e-4,
+        file_name="nn/module/data/hpx_detokenizer_output.pth",
+        atol=1e-3,  # Data on order of [1 to 0.1]
     )

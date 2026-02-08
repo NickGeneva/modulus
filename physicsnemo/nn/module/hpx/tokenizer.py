@@ -35,8 +35,11 @@ else:
     def hpx_grid(*args, **kwargs):
         """Dummy symbol for missing earth2grid backend."""
         raise ImportError(
-            "earth2grid is not installed which is required for the HealPixPatchTokenizer. "
-            "Install earth2grid from https://github.com/NVlabs/earth2grid.git"
+            (
+                "earth2grid is not installed, cannot use it as a backend for HEALPix padding.\n"
+                "Install earth2grid from https://github.com/NVlabs/earth2grid.git to enable the accelerated path.\n"
+                "pip install --no-build-isolation https://github.com/NVlabs/earth2grid/archive/main.tar.gz"
+            )
         )
 
 
