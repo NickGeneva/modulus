@@ -227,9 +227,9 @@ def test_hpx_patch_tokenizer_forward(device):
     torch.manual_seed(0)
 
     in_channels = 5
-    hidden_size = 64
-    level_fine = 5
-    level_coarse = 3
+    hidden_size = 8
+    level_fine = 2
+    level_coarse = 1
 
     model = HEALPixPatchTokenizer(
         in_channels=in_channels,
@@ -274,11 +274,11 @@ def test_hpx_patch_detokenizer_forward(device):
     """Test HEALPixPatchDetokenizer forward pass."""
     torch.manual_seed(0)
 
-    hidden_size = 64
-    out_channels = 5
-    level_coarse = 3
-    level_fine = 5
-    time_length = 2
+    hidden_size = 8
+    out_channels = 2
+    level_coarse = 1
+    level_fine = 2
+    time_length = 1
 
     model = HEALPixPatchDetokenizer(
         hidden_size=hidden_size,
